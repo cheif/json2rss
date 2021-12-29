@@ -1,6 +1,6 @@
-use handlebars::Handlebars;
+use handlebars::{template::Template, Handlebars, Renderable};
 use rss::{ChannelBuilder, GuidBuilder, Item, ItemBuilder};
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use serde_json::Value;
 
 #[derive(Deserialize)]
@@ -9,9 +9,12 @@ pub struct Config {
     link: String,
     title: String,
     item_key: String,
-    url_template: String,
-    title_template: String,
-    description_template: String,
+    #[serde(deserialize_with = "deserialize_template")]
+    url_template: Template,
+    #[serde(deserialize_with = "deserialize_template")]
+    title_template: Template,
+    #[serde(deserialize_with = "deserialize_template")]
+    description_template: Template,
 }
 
 pub fn generate_channel(config: &Config) -> Result<String, Error> {
@@ -21,12 +24,12 @@ pub fn generate_channel(config: &Config) -> Result<String, Error> {
 trait Fetcher {
     fn get(&self, source: &str) -> Result<Box<dyn std::io::Read>, reqwest::Error>;
 }
+
 impl Fetcher for reqwest::blocking::Client {
     fn get(&self, source: &str) -> Result<Box<dyn std::io::Read>, reqwest::Error> {
         return Ok(Box::new(self.get(source).send()?));
     }
 }
-
 
 fn _generate_channel(config: &Config, fetcher: impl Fetcher) -> Result<String, Error> {
     let res = fetcher.get(&config.source)?;
@@ -58,10 +61,14 @@ fn create_item(item: &Value, config: &Config) -> Result<Item, Error> {
         .build());
 }
 
-fn render(template_str: &str, item: &Value) -> Result<String, Error> {
+fn render<T>(t: &Template, data: &T) -> Result<String, handlebars::RenderError>
+where
+    T: serde::Serialize,
+{
     let handlebars = Handlebars::new();
-    let res = handlebars.render_template(template_str, item);
-    return Ok(res?);
+    let mut render_context = handlebars::RenderContext::new(t.name.as_ref());
+    let ctx = handlebars::Context::wraps(data)?;
+    return t.renders(&handlebars, &ctx, &mut render_context).map_err(handlebars::RenderError::from);
 }
 
 #[derive(Debug)]
@@ -72,6 +79,29 @@ pub enum Error {
     CouldNotParseId,
     JSONError(serde_json::Error),
     FetchError(reqwest::Error),
+}
+
+fn deserialize_template<'de, D>(deserializer: D) -> Result<Template, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct TemplateVisitor;
+    impl<'de> serde::de::Visitor<'de> for TemplateVisitor {
+        type Value = Template;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            return formatter.write_str("a valid handlebars-template");
+        }
+
+        fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            return Template::compile(v).map_err(E::custom);
+        }
+    }
+
+    return deserializer.deserialize_str(TemplateVisitor);
 }
 
 impl From<serde_json::Error> for Error {
@@ -109,11 +139,11 @@ mod tests {
             link: "https://www.volvocars.com/se/care-by-volvo/cars/".to_string(),
             title: "Care by Volvo".to_string(),
             item_key: "data".to_string(),
-            url_template: "https://www.volvocars.com/se/care-by-volvo/cars/{{vehicleId}}/".to_string(),
-            title_template: "{{title}} ({{engineType}})".to_string(),
-            description_template: "{{basePrice}}:-/Mån\n{{engineDescription}}\n{{#each environmentalDataDetails.wltp}}{{this.label}}: {{this.value}}\n{{/each}}\n\nUppskattad leverans: {{estimateDeliveryDate}}".to_string()
+            url_template: Template::compile("https://www.volvocars.com/se/care-by-volvo/cars/{{vehicleId}}/").unwrap(),
+            title_template: Template::compile("{{title}} ({{engineType}})").unwrap(),
+            description_template: Template::compile("{{basePrice}}:-/Mån\n{{engineDescription}}\n{{#each environmentalDataDetails.wltp}}{{this.label}}: {{this.value}}\n{{/each}}\n\nUppskattad leverans: {{estimateDeliveryDate}}").unwrap()
         };
-        let res = _generate_channel(&config, TestFetcher{});
+        let res = _generate_channel(&config, TestFetcher {});
         println!("{:?}", res);
         assert!(res.is_ok());
     }
