@@ -21,7 +21,21 @@ pub struct Config {
 }
 
 pub fn generate_channel(config: &Config) -> Result<String, Error> {
-    let res = reqwest::blocking::get(&config.source)?;
+    return _generate_channel(config, reqwest::blocking::Client::new());
+}
+
+trait Fetcher {
+    fn get(&self, source: &str) -> Result<Box<dyn std::io::Read>, reqwest::Error>;
+}
+impl Fetcher for reqwest::blocking::Client {
+    fn get(&self, source: &str) -> Result<Box<dyn std::io::Read>, reqwest::Error> {
+        return Ok(Box::new(self.get(source).send()?));
+    }
+}
+
+
+fn _generate_channel(config: &Config, fetcher: impl Fetcher) -> Result<String, Error> {
+    let res = fetcher.get(&config.source)?;
     let parsed: Value = serde_json::from_reader(res)?;
     let items = &parsed[&config.item_key]
         .as_array()
@@ -39,7 +53,7 @@ pub fn generate_channel(config: &Config) -> Result<String, Error> {
     return Ok(channel.to_string());
 }
 
-pub fn create_item(item: &Value, config: &Config) -> Result<Item, Error> {
+fn create_item(item: &Value, config: &Config) -> Result<Item, Error> {
     let url = render(&config.url_template, item)?;
     let title = render(&config.title_template, item)?;
     let description = render(&config.description_template, item)?;
@@ -96,7 +110,6 @@ mod tests {
 
     #[test]
     fn care_by_volvo() {
-        let file = std::fs::File::open("testdata/CbV.json").unwrap();
         let config = Config {
             source: "https://www.volvocars.com/api/care-by-volvo/cars/cars/?customerType=b2c&filters.delivery=stock&itemsPerPage=18&market=se&page=1".to_string(),
             link: "https://www.volvocars.com/se/care-by-volvo/cars/".to_string(),
@@ -106,8 +119,16 @@ mod tests {
             title_template: "{{title}} ({{engineType}})".to_string(),
             description_template: "{{basePrice}}:-/Mån\n{{engineDescription}}\n{{#each environmentalDataDetails.wltp}}{{this.label}}: {{this.value}}\n{{/each}}\n\nUppskattad leverans: {{estimateDeliveryDate}}".to_string()
         };
-        let res = generate_channel(&config);
+        let res = _generate_channel(&config, TestFetcher{});
         println!("{:?}", res);
         assert!(res.is_ok());
+    }
+
+    struct TestFetcher {}
+    impl Fetcher for TestFetcher {
+        fn get(&self, _source: &str) -> Result<Box<dyn std::io::Read>, reqwest::Error> {
+            let file = std::fs::File::open("testdata/CbV.json").unwrap();
+            return Ok(Box::new(file));
+        }
     }
 }
