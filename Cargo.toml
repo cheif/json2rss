@@ -1,5 +1,5 @@
 [package]
-
+edition = '2021'
 name = "json2rss"
 version = "0.0.1"
 authors = [ "Dan Berglund <dan@berglund.io" ]

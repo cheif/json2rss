@@ -1,9 +1,3 @@
-extern crate handlebars;
-extern crate reqwest;
-extern crate rss;
-extern crate serde;
-extern crate serde_json;
-
 use handlebars::Handlebars;
 use rss::{ChannelBuilder, GuidBuilder, Item, ItemBuilder};
 use serde::Deserialize;

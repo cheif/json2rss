@@ -1,13 +1,4 @@
-#[macro_use]
-extern crate rouille;
-extern crate handlebars;
-extern crate reqwest;
-extern crate rss;
-extern crate serde;
-extern crate serde_json;
-
-use rouille::Request;
-use rouille::Response;
+use rouille::{Request, Response, router};
 
 mod lib;
 
