@@ -5,7 +5,7 @@ extern crate serde;
 extern crate serde_json;
 
 use handlebars::Handlebars;
-use rss::{ChannelBuilder, EnclosureBuilder, GuidBuilder, Item, ItemBuilder};
+use rss::{ChannelBuilder, GuidBuilder, Item, ItemBuilder};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -18,7 +18,6 @@ pub struct Config {
     url_template: String,
     title_template: String,
     description_template: String,
-    image_key: Option<String>,
 }
 
 pub fn generate_channel(config: &Config) -> Result<String, Error> {
@@ -44,26 +43,11 @@ pub fn create_item(item: &Value, config: &Config) -> Result<Item, Error> {
     let url = render(&config.url_template, item)?;
     let title = render(&config.title_template, item)?;
     let description = render(&config.description_template, item)?;
-    let mut rss_item = ItemBuilder::default()
+    return Ok(ItemBuilder::default()
         .guid(GuidBuilder::default().value(url).build())
         .title(title)
         .description(description)
-        .build();
-    if let Some(image_key) = &config.image_key {
-        let image_url = item[image_key].as_str().ok_or(Error::CouldNotParseImage)?;
-        let mut image = EnclosureBuilder::default()
-            .url(image_url)
-            .mime_type("image/jpeg")
-            .build();
-        if let Some(length) = reqwest::blocking::get(image_url)
-            .ok()
-            .and_then(|c| c.content_length())
-        {
-            image.set_length(format!("{}", length));
-        }
-        rss_item.set_enclosure(image);
-    }
-    return Ok(rss_item);
+        .build());
 }
 
 fn render(template_str: &str, item: &Value) -> Result<String, Error> {
@@ -78,7 +62,6 @@ pub enum Error {
     TemplateError(handlebars::TemplateError),
     RenderError(handlebars::RenderError),
     CouldNotParseId,
-    CouldNotParseImage,
     JSONError(serde_json::Error),
     FetchError(reqwest::Error),
 }
@@ -121,8 +104,7 @@ mod tests {
             item_key: "data".to_string(),
             url_template: "https://www.volvocars.com/se/care-by-volvo/cars/{{vehicleId}}/".to_string(),
             title_template: "{{title}} ({{engineType}})".to_string(),
-            description_template: "{{basePrice}}:-/Mån\n{{engineDescription}}\n{{#each environmentalDataDetails.wltp}}{{this.label}}: {{this.value}}\n{{/each}}\n\nUppskattad leverans: {{estimateDeliveryDate}}".to_string(),
-            image_key: Some("image".to_string())
+            description_template: "{{basePrice}}:-/Mån\n{{engineDescription}}\n{{#each environmentalDataDetails.wltp}}{{this.label}}: {{this.value}}\n{{/each}}\n\nUppskattad leverans: {{estimateDeliveryDate}}".to_string()
         };
         let res = generate_channel(&config);
         println!("{:?}", res);
