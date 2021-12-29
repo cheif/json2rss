@@ -1,13 +1,13 @@
+extern crate handlebars;
+extern crate reqwest;
 extern crate rss;
 extern crate serde;
 extern crate serde_json;
-extern crate handlebars;
-extern crate reqwest;
 
+use handlebars::Handlebars;
+use rss::{ChannelBuilder, EnclosureBuilder, GuidBuilder, Item, ItemBuilder};
 use serde::Deserialize;
 use serde_json::Value;
-use rss::{ChannelBuilder, ItemBuilder, Item, EnclosureBuilder, GuidBuilder};
-use handlebars::Handlebars;
 
 #[derive(Deserialize)]
 pub struct Config {
@@ -18,14 +18,19 @@ pub struct Config {
     url_template: String,
     title_template: String,
     description_template: String,
-    image_key: Option<String>
+    image_key: Option<String>,
 }
 
 pub fn generate_channel(config: &Config) -> Result<String, Error> {
     let res = reqwest::blocking::get(&config.source)?;
     let parsed: Value = serde_json::from_reader(res)?;
-    let items = &parsed[&config.item_key].as_array().ok_or(Error::ItemArrayIncorrect)?;
-    let rss_items: Result<Vec<_>, _> = items.into_iter().map(|item| create_item(item, config)).collect();
+    let items = &parsed[&config.item_key]
+        .as_array()
+        .ok_or(Error::ItemArrayIncorrect)?;
+    let rss_items: Result<Vec<_>, _> = items
+        .into_iter()
+        .map(|item| create_item(item, config))
+        .collect();
     let valid_items: Vec<_> = rss_items?;
     let channel = ChannelBuilder::default()
         .title(&config.title)
@@ -50,7 +55,10 @@ pub fn create_item(item: &Value, config: &Config) -> Result<Item, Error> {
             .url(image_url)
             .mime_type("image/jpeg")
             .build();
-        if let Some(length) = reqwest::blocking::get(image_url).ok().and_then(|c| c.content_length()) {
+        if let Some(length) = reqwest::blocking::get(image_url)
+            .ok()
+            .and_then(|c| c.content_length())
+        {
             image.set_length(format!("{}", length));
         }
         rss_item.set_enclosure(image);
@@ -72,7 +80,7 @@ pub enum Error {
     CouldNotParseId,
     CouldNotParseImage,
     JSONError(serde_json::Error),
-    FetchError(reqwest::Error)
+    FetchError(reqwest::Error),
 }
 
 impl From<serde_json::Error> for Error {

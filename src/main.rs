@@ -1,10 +1,10 @@
 #[macro_use]
 extern crate rouille;
+extern crate handlebars;
+extern crate reqwest;
 extern crate rss;
 extern crate serde;
 extern crate serde_json;
-extern crate reqwest;
-extern crate handlebars;
 
 use rouille::Request;
 use rouille::Response;
@@ -15,14 +15,14 @@ fn main() {
     println!("Starting server");
     rouille::start_server("0.0.0.0:8080", move |request| {
         router!(request,
-                (GET) (/) => {
-                    match process_request(request) {
-                        Ok(rss) => Response::from_data("application/rss+xml", rss),
-                        Err(error) => Response::text(format!("Error: {:?}", error)).with_status_code(400)
-                    }
-                },
-                _ => Response::empty_404()
-                )
+        (GET) (/) => {
+            match process_request(request) {
+                Ok(rss) => Response::from_data("application/rss+xml", rss),
+                Err(error) => Response::text(format!("Error: {:?}", error)).with_status_code(400)
+            }
+        },
+        _ => Response::empty_404()
+        )
     });
 }
 
@@ -36,7 +36,7 @@ fn process_request(request: &Request) -> Result<String, Error> {
 pub enum Error {
     ConfigMissing,
     ConfigParseError(serde_json::Error),
-    GeneratorError(lib::Error)
+    GeneratorError(lib::Error),
 }
 
 impl From<serde_json::Error> for Error {
