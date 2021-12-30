@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+    <head>
+<style>
+.container {
+    display: flex;
+}
+.container > * {
+    flex: 50%
+}
+.container form label {
+    display: block;
+}
+.container form textarea {
+    width: 100%;
+    max-width: 100%;
+}
+.container #rss {
+    grid-column: 2;
+}
+.container #rss img {
+    max-width: 100%;
+}
+</style>
+    </head>
+<body>
+    <div class="container">
+        <form onsubmit="return processForm(event)" method="post">
+            Title: <input type="text" name="title"><br/>
+            URL: <input type="text" name="source"><br/>
+            Link: <input type="text" name="link"><br/>
+            Item-key: <input type="text" name="item_key"><br/>
+            Url-Template: <input type="text" name="url_template"><br/>
+            Title-Template: <input type="text" name="title_template"><br/>
+            <label for="description_template">Description:</label>
+            <textarea id="description_template" name="description_template" rows="10"></textarea><br/>
+            <input type="submit" value="Submit">
+        </form>
+        <script type="text/javascript" charset="UTF-8" src="app.js"></script>
+        <div id="rss">
+            <h1>Your feed will be shown here</h1>
+        </div>
+    </div>
+</body>
+</html>
