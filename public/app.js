@@ -1,3 +1,5 @@
+import { HandlebarsInput } from "./handlebars-input.js"
+
 const render = (rss) => {
   const data = new window.DOMParser().parseFromString(rss, "text/xml")
   let html = `
@@ -21,21 +23,41 @@ const render = (rss) => {
   const element = document.getElementById("rss")
   element.innerHTML = html
 }
-const processForm = (evt) => {
-  const form = evt.target
-  const config = {
-    source: form.source.value,
-    link: form.link.value,
-    title: form.title.value,
-    item_key: form.item_key.value,
-    url_template: form.url_template.value,
-    title_template: form.title_template.value,
-    description_template: form.description_template.value
+
+class App {
+  constructor(form, rssElement) {
+    this.form = form
+    this.rssElement = rssElement
+    this.form.onsubmit = this.processForm.bind(this)
+    this.form.source.oninput = this.sourceChanged.bind(this)
+    this.description_input = new HandlebarsInput(form.description_template)
   }
 
-  const url = `/feed?config=${encodeURIComponent(JSON.stringify(config))}`
-  fetch(url)
-    .then(res => res.text())
-    .then(render)
-  return false;
+  setTemplate(json) {
+    this.description_input.setTemplate(json[this.form.item_key.value][0])
+  }
+
+  sourceChanged() {
+    fetch(this.form.source.value).then(res => res.json()).then(this.setTemplate.bind(this))
+  }
+
+  processForm() {
+    const config = {
+      source: this.form.source.value,
+      link: this.form.link.value,
+      title: this.form.title.value,
+      item_key: this.form.item_key.value,
+      url_template: this.form.url_template.value,
+      title_template: this.form.title_template.value,
+      description_template: this.form.description_template.value
+    }
+
+    const url = `/feed?config=${encodeURIComponent(JSON.stringify(config))}`
+    fetch(url)
+      .then(res => res.text())
+      .then(render)
+    return false;
+  }
 }
+
+window.app = new App(document.forms[0], document.getElementById("rss"));
