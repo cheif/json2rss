@@ -66,8 +66,8 @@ where
     T: serde::Serialize,
 {
     let handlebars = Handlebars::new();
-    let mut render_context = handlebars::RenderContext::new(t.name.as_ref());
     let ctx = handlebars::Context::wraps(data)?;
+    let mut render_context = handlebars::RenderContext::new(t.name.as_ref());
     return t.renders(&handlebars, &ctx, &mut render_context).map_err(handlebars::RenderError::from);
 }
 
